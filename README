@@ -1,0 +1,208 @@
+/****************************************************************************/
+0. Table of Contents
+/****************************************************************************/
+
+0.  Table of Contents
+1.  What is hookster?
+2.  How to use
+3.  How to add a new check
+4.  How to add a new action
+5.  Todo
+6.  Bugs and errata
+7.  Requests
+
+/****************************************************************************/
+1. What is hookster?
+/****************************************************************************/
+
+Hookster is a set of configurable scripts for running on a software 
+configuration management server.  These scripts can be used to kick off smoke
+tests, validate the commit comment, ensure the new code meets your company's
+software standards, and anything else (within reason) you can think of.
+
+There are three major components to hookster:
+* Actions - actions to perform when a commit succeeds or fails, e.g. email
+            a list of people that a commit has succeeded/failed
+
+* Checks  - checks to perform on the new commit.  The sky is the limit here;
+            you could write a check to only allow commits that have "meow" in
+            the body of the file being changed.  (That check might make your
+            manager mad.)
+
+* SCMs    - currently only git is supported, but all of the SCM operations are
+            abstracted out.  Adding a new SCM is self-contained and straightforward.
+
+/****************************************************************************/
+2. How to use
+/****************************************************************************/
+
+1.  Configure your SCM
+    a.  Git SCM
+        i.  Copy the hookster source to your git server
+        ii. Log into your git server and locate the "hooks" directory of the
+            repository you want to connect to hookster
+        iii.Edit "pre-receive".  You will want it to look something like the
+            following:
+            
+            #!/bin/sh
+
+            # get the commit information from stdin
+            read oldrev newrev refname
+
+            hookster_path={path_to_where_you_copied_hookster_in_step1}
+            
+            # if you have more than one git repository, I recommend putting each
+            # conf file in the "hooks" directory of each repo.  if you have only
+            # one git repo, then feel free to use the default conf location
+            conf_file=$hookster_path/hookster.conf
+
+            /usr/bin/python $hookster_path/main.py --scm git --oldrev $oldrev --newrev $newrev --branch $refname --config $conf_file || exit 1
+
+    b.  Other SCMs
+        i.  Not (yet?) supported
+        
+2.  Edit your configuration file
+    a.  The hookster configuration file will work directly out of the box, but
+        I strongly recommen that you peruse through it and modify it to meet
+        your needs.
+    
+3.  Profit!
+
+/****************************************************************************/
+3. How to add a new check
+/****************************************************************************/
+
+1.  Create your check
+    a.  The easiest method is to copy an existing working check.  I would
+        recommend copying the CheckRejectTabs.py and naming it appropriately.
+        (Checks shall reside in the /checks/ directory. They can be named
+        whatever you want, but by convention I have been naming them Check*.py.)
+        For this example, I will use the name CheckForAwesomeness.py
+        
+        If you would rather start from scratch, you will need to create a new
+        python file (again, in the /checks/ directory).  Within this file, you
+        need to create a new class.  The class shall be named the same as the
+        file, e.g. CheckForAwesomeness and it must inherit from AbstractCheck.
+        Furthermore, it must implement all abstract methods in AbstractCheck.
+        
+    b.  Edit your check to meet your needs.  Look at framework/fileObject.py
+        to see what data (regarding this particular commit ) is available to you.
+        
+        Need some other piece of data not available to you?  Check out
+        Section 6 - Requests.
+        
+2.  Edit hookster.conf
+    
+    a.  Add your new check to the checks_enabled option.  For our example,
+        your checks_enabled may now look like:
+            
+        checks_enabled=CheckCopyright,CheckRejectTabs,CheckForAwesomeness
+            
+    b.  Add a new section for your check.  Look at [CheckCopyright] as
+        an example.
+            
+    c.  Your new section must define an extensions option.  You may define
+        custom options.  Look at checks/CheckCopyright.py for examples on
+        using custom options.
+            
+    d.  Your new section should look something like this:
+        
+        [CheckForAwesomeness]
+        extensions=*.py,*.c,*.h
+        awesomeness_option="yes, please"
+        bogus_option=-42
+            
+3.  That's it.  (I think.)  Caveat emptor.
+
+/****************************************************************************/
+4. How to add a new action
+/****************************************************************************/
+
+1.  Create your action
+    a.  Just like with checks, the easiest way to make an action is to
+        copy an existing working action.  I would recommend copying
+        ActionEmail.py and naming it appropriately.  (Actions shall reside in
+        the /actions/ directory. They can be named whatever you want, but by
+        convention I have been naming them Action*.py.)  For this example,
+        I will use the name ActionJackson.py.
+        
+        If you would rather start from scratch, you will need to create a new
+        python file (again, in the /actions/ directory).  Within this file, you
+        need to create a new class.  The class shall be named the same as the
+        file, e.g. ActionJackson and it must inherit from AbstractAction.
+        Furthermore, it must implement all abstract methods in AbstractAction.
+
+    b.  Edit your action to meet your needs.  When your action is called by the
+        framework, the framework will provide a success/fail boolean, access to
+        the commit information (committer, patch, etc.), as well as access to
+        whatever options your action has defined in the configuration file.
+        
+        Need some other piece of data not available to you?  Check out
+        Section 6 - Requests.
+        
+2.  Edit hookster.conf
+    
+    a.  Add your new action to the actions_on_success and/or actions_on_failure
+        options.  For our example, actions_on_success may now look like:
+            
+        actions_on_success=ActionEmail.ActionJackson
+            
+    b.  Add a new section for your action.  Look at [ActionEmail] as
+        an example.
+            
+    c.  No options are required for actions, but you may define custom options.
+        Look at /actions/ActionEmail.py on how to define and use custom
+        options.
+            
+    d.  Your new section should look something like this:
+        
+        [ActionJackson]
+        quote="How do you like your ribs?"
+        imdb_rating=5.1
+        imdb_link="http://www.imdb.com/title/tt0094612/"
+            
+3.  That's it.  (I think.)  Caveat emptor iterum (or something like that).
+
+/****************************************************************************/
+5. Todo
+/****************************************************************************/
+
+There is a lot of cool stuff that I should do, but I have a day job and a
+family and I like to see the sky now and then.  Thus, this list is long, but 
+that's cool.  Anywho, here's something to keep me awake at night:
+
+(This list is not prioritized.)
+0001 - Exclusion filter - add logic to exclude certain directories or files when
+       running checks
+0002 - SVN support
+0003 - Other SCMs?
+0004 - Add support for checks at the "commit" level.  This would open up a whole
+       new world of checks, e.g. check for proper comment, connect to Bugzilla, 
+       run Jenkins, make coffee, and so on
+0005 - Add more checks, of course.  (EOL is on the top of my mind at the moment.)
+0006 - Add more actions, of course
+0007 - Like any project, add more examples and documentation
+
+/****************************************************************************/
+6. Bugs and errata
+/****************************************************************************/
+
+I don't know of any currently.  Contact me if you find something that you
+think is wrong.
+
+/****************************************************************************/
+7. Requests
+/****************************************************************************/
+
+I think the codebase is self-explanatory, so feel free to fork this repository
+and make whatever improvements/changes you need to get your real work done.
+
+If you don't feel comfortable making changes, ping me.  I'll do my best to help
+you out, but I'm a busy guy.  (At least that's what I tell my wife.)  But you 
+may be able to motivate me with beer, mountain bike parts, or other cool baubles.
+
+Regards.
+
+Tom Hromatka
+tom.hromatka+github@gmail.com
+Don't remove the "+github".  Otherwise you risk being relegated into /dev/null :(

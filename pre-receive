@@ -1,0 +1,8 @@
+#!/bin/sh
+
+# get the commit information from stdin
+read oldrev newrev refname
+
+hookster_path=/home/git/git/gitster/master
+
+/usr/bin/python $hookster_path/main.py --scm git --oldrev $oldrev --newrev $newrev --config $hookster_path/hookster.conf || exit 1
